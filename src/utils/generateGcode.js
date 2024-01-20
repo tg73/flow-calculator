@@ -1,6 +1,14 @@
 import { version } from '../lib/version'
 import { replaceTemplateVars } from './replaceTemplateVars';
 import { validMaxFlowStepsPerColumn } from './boundaryChecks';
+import seedrandom from 'seedrandom';
+
+function shuffleArray(array, prng) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(prng() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+}
 
 export default function generateGcode(data, { addHeader=false }={}) {
     const {
@@ -24,8 +32,10 @@ export default function generateGcode(data, { addHeader=false }={}) {
         startHeight,
         temperatureGCodeType,
         heatBeforeDewell,        
-        /* eslint-disable */ 
+        randomizeTestOrder,
+        randomizeTestOrderSeed,
         toolNumber,
+        /* eslint-disable */ 
         bedWidth,
         safeZPark,
         tempEnd,
@@ -84,7 +94,7 @@ export default function generateGcode(data, { addHeader=false }={}) {
         }
         output.push("");
     }
-
+    
     output.push(";####### Start Gcode");
     startGcode.split("\n").forEach(line => {
         output.push(line);
@@ -95,48 +105,75 @@ export default function generateGcode(data, { addHeader=false }={}) {
     output.push(`M83 ; set extruder to relative mode`)
     output.push("");
 
+    let tests = randomizeTestOrder ? [] : null;
+
     for (let i = 1; i <= tempSteps; i++) {
         if (tempOffset === 0 && i > 1) {
             flowStart = flowStart + flowSteps * flowOffset;
         }
-
-        output.push(`;####### ${tempStart + (i - 1) * tempOffset}°C`);
-        
-        let setNozzleTemp = toolNumber 
-            ? `M${temperatureGCodeType} S${tempStart + (i - 1) * tempOffset} T${toolNumber}`
-            : `M${temperatureGCodeType} S${tempStart + (i - 1) * tempOffset}`;
-
-        if (heatBeforeDewell) {
-            output.push(setNozzleTemp);
-            output.push(`G4 S${dwellTime}; Dwell`);
-        } else {
-            output.push(`G4 S${dwellTime}; Dwell`);
-            output.push(setNozzleTemp);
-        }
-        output.push("");
-
         for (let j = 1; j <= flowSteps; j++) {
+
             if (tempOffset === 0 && i === tempSteps && flowStart + (j - 2) * flowOffset === flowEnd) break;
+
+            let testOutput = randomizeTestOrder ? [] : output;
+
+            if (j === 1 || randomizeTestOrder) {
+                if (randomizeTestOrder) {
+                    testOutput.push(`;####### ${tempStart + (i - 1) * tempOffset}°C // ${flowStart + (j - 1) * flowOffset}mm3/s`);
+                    testOutput.push(`M117 ${tempStart + (i - 1) * tempOffset}C // ${flowStart + (j - 1) * flowOffset}mm3/s`);        
+                }
+                else {
+                    testOutput.push(`;####### ${tempStart + (i - 1) * tempOffset}°C`);
+                }
+
+                let setNozzleTemp = toolNumber 
+                    ? `M${temperatureGCodeType} S${tempStart + (i - 1) * tempOffset} T${toolNumber}`
+                    : `M${temperatureGCodeType} S${tempStart + (i - 1) * tempOffset}`;
+    
+                if (heatBeforeDewell) {
+                    testOutput.push(setNozzleTemp);
+                    testOutput.push(`G4 S${dwellTime}; Dwell`);
+                } else {
+                    testOutput.push(`G4 S${dwellTime}; Dwell`);
+                    testOutput.push(setNozzleTemp);
+                }
+
+                testOutput.push("");
+            }
 
             let extrusionSpeed = Math.round((blobHeight / (extrusionAmount / ((flowStart + (j - 1) * flowOffset) / (Math.atan(1) * filamentDiameter * filamentDiameter) * 60)) + Number.EPSILON) * 100) / 100;
 
-            output.push(`;####### ${tempStart + (i - 1) * tempOffset}°C // ${flowStart + (j - 1) * flowOffset}mm3/s`);
-            output.push(`M117 ${tempStart + (i - 1) * tempOffset}C // ${flowStart + (j - 1) * flowOffset}mm3/s`);
+            if (!randomizeTestOrder) {
+                testOutput.push(`;####### ${tempStart + (i - 1) * tempOffset}°C // ${flowStart + (j - 1) * flowOffset}mm3/s`);
+                testOutput.push(`M117 ${tempStart + (i - 1) * tempOffset}C // ${flowStart + (j - 1) * flowOffset}mm3/s`);
+            }
 
-            output.push(`G0 X${Math.abs(bedMarginX) + ((i - 1) * (primeLength + wipeLength + tempSpacing))} Y${(bedLength - bedMarginY) - (j - 1) * flowSpacing} Z${0.5 + blobHeight + 5} F${travelSpeed * 60}`);
-            output.push(`G4 S${dwellTime} ; Dwell`);
-            output.push(`G0 Z${primingHeight} ; Drop down`);
-            output.push(`G1 X${Math.abs(bedMarginX) + primeLength + ((i - 1) * (primeLength + wipeLength + tempSpacing))} E${primeAmount} F${(primeSpeed * 60)} ; Prime`);
-            output.push(`G1 E${-1 * retractionDistance} F${retractionSpeed * 60} ; Retract`);
-            output.push(`G0 X${Math.abs(bedMarginX) + primeLength + wipeLength + ((i - 1) * (primeLength + wipeLength + tempSpacing))} F${travelSpeed * 60} ; Wipe`);
-            output.push(`G0 Z${startHeight}  ; Lift`);
-            output.push(`G1 E${retractionDistance} F${retractionSpeed * 60} ; Undo Retract`);
-            output.push(`G1 Z${startHeight + blobHeight} E${extrusionAmount} F${extrusionSpeed} ; Extrude`);
-            output.push(`G1 E${-1 * retractionDistance} F${retractionSpeed * 60} ; Retract`);
-            output.push(`G0 Z${startHeight + blobHeight + 5}; Lift`);
-            output.push(`G0 X${Math.abs(bedMarginX) + ((i - 1) * (primeLength + wipeLength + tempSpacing))} Y${(bedLength - bedMarginY) - (j - 1) * flowSpacing} F${travelSpeed * 60}`);
-            output.push("G92 E0 ; Reset Extruder");
-            output.push("");
+            testOutput.push(`G0 X${Math.abs(bedMarginX) + ((i - 1) * (primeLength + wipeLength + tempSpacing))} Y${(bedLength - bedMarginY) - (j - 1) * flowSpacing} Z${0.5 + blobHeight + 5} F${travelSpeed * 60}`);
+            testOutput.push(`G4 S${dwellTime} ; Dwell`);
+            testOutput.push(`G0 Z${primingHeight} ; Drop down`);
+            testOutput.push(`G1 X${Math.abs(bedMarginX) + primeLength + ((i - 1) * (primeLength + wipeLength + tempSpacing))} E${primeAmount} F${(primeSpeed * 60)} ; Prime`);
+            testOutput.push(`G1 E${-1 * retractionDistance} F${retractionSpeed * 60} ; Retract`);
+            testOutput.push(`G0 X${Math.abs(bedMarginX) + primeLength + wipeLength + ((i - 1) * (primeLength + wipeLength + tempSpacing))} F${travelSpeed * 60} ; Wipe`);
+            testOutput.push(`G0 Z${startHeight}  ; Lift`);
+            testOutput.push(`G1 E${retractionDistance} F${retractionSpeed * 60} ; Undo Retract`);
+            testOutput.push(`G1 Z${startHeight + blobHeight} E${extrusionAmount} F${extrusionSpeed} ; Extrude`);
+            testOutput.push(`G1 E${-1 * retractionDistance} F${retractionSpeed * 60} ; Retract`);
+            testOutput.push(`G0 Z${startHeight + blobHeight + 5}; Lift`);
+            testOutput.push(`G0 X${Math.abs(bedMarginX) + ((i - 1) * (primeLength + wipeLength + tempSpacing))} Y${(bedLength - bedMarginY) - (j - 1) * flowSpacing} F${travelSpeed * 60}`);
+            testOutput.push("G92 E0 ; Reset Extruder");
+            testOutput.push("");
+
+            if ( randomizeTestOrder ) {
+                tests.push( testOutput );
+            }
+        }
+    }
+    
+    if (randomizeTestOrder) {
+        let prng = seedrandom(randomizeTestOrderSeed ? randomizeTestOrderSeed : null);
+        shuffleArray(tests, prng);
+        for (const test of tests) {
+            output.push(...test);
         }
     }
     
