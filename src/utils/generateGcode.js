@@ -10,7 +10,7 @@ function shuffleArray(array, prng) {
     }
 }
 
-export default function generateGcode(data, { addHeader=false }={}) {
+export default function generateGcode(data, { addHeader=true }={}) {
     const {
         filamentDiameter,
         travelSpeed,
@@ -31,16 +31,20 @@ export default function generateGcode(data, { addHeader=false }={}) {
         primingHeight,
         startHeight,
         temperatureGCodeType,
-        heatBeforeDewell,        
+        heatBeforeDwell,        
         randomizeTestOrder,
         randomizeTestOrderSeed,
         toolNumber,
+        dwellHeight,
+        dwellCFactorRising,
+        dwellCFactorFalling,        
         /* eslint-disable */ 
         bedWidth,
         safeZPark,
         tempEnd,
         bedTemp,
         fanSpeed,
+        extrusionVolume,
         /* eslint-enable */
       } = data;
 
@@ -116,41 +120,60 @@ export default function generateGcode(data, { addHeader=false }={}) {
             if (tempOffset === 0 && i === tempSteps && flowStart + (j - 2) * flowOffset === flowEnd) break;
 
             let testOutput = randomizeTestOrder ? [] : output;
+            let temp = tempStart + (i - 1) * tempOffset;
+            
+            let setNozzleTemp = toolNumber 
+                ? `M${temperatureGCodeType} S${temp} T${toolNumber}`
+                : `M${temperatureGCodeType} S${temp}`;
+
+            let testDescComment = `;####### ${temp}°C // ${flowStart + (j - 1) * flowOffset}mm3/s`;
+            let testDescMessage = `M117 ${temp}C // ${flowStart + (j - 1) * flowOffset}mm3/s`;
 
             if (j === 1 || randomizeTestOrder) {
                 if (randomizeTestOrder) {
-                    testOutput.push(`;####### ${tempStart + (i - 1) * tempOffset}°C // ${flowStart + (j - 1) * flowOffset}mm3/s`);
-                    testOutput.push(`M117 ${tempStart + (i - 1) * tempOffset}C // ${flowStart + (j - 1) * flowOffset}mm3/s`);        
+                    testOutput.push(testDescComment);
                 }
                 else {
-                    testOutput.push(`;####### ${tempStart + (i - 1) * tempOffset}°C`);
+                    testOutput.push(`;####### ${temp}°C`);
+                    if (dwellHeight) {
+                        testOutput.push(`G0 Z${dwellHeight} ; Move to dwell height`);
+                    }
+                    if (heatBeforeDwell) {
+                        testOutput.push(setNozzleTemp);
+                        testOutput.push(`G4 S${dwellTime}; Dwell`);
+                    } else {
+                        testOutput.push(`G4 S${dwellTime}; Dwell`);
+                        testOutput.push(setNozzleTemp);
+                    }
                 }
-
-                let setNozzleTemp = toolNumber 
-                    ? `M${temperatureGCodeType} S${tempStart + (i - 1) * tempOffset} T${toolNumber}`
-                    : `M${temperatureGCodeType} S${tempStart + (i - 1) * tempOffset}`;
     
-                if (heatBeforeDewell) {
-                    testOutput.push(setNozzleTemp);
-                    testOutput.push(`G4 S${dwellTime}; Dwell`);
-                } else {
-                    testOutput.push(`G4 S${dwellTime}; Dwell`);
-                    testOutput.push(setNozzleTemp);
-                }
-
                 testOutput.push("");
             }
 
             let extrusionSpeed = Math.round((blobHeight / (extrusionAmount / ((flowStart + (j - 1) * flowOffset) / (Math.atan(1) * filamentDiameter * filamentDiameter) * 60)) + Number.EPSILON) * 100) / 100;
 
             if (!randomizeTestOrder) {
-                testOutput.push(`;####### ${tempStart + (i - 1) * tempOffset}°C // ${flowStart + (j - 1) * flowOffset}mm3/s`);
-                testOutput.push(`M117 ${tempStart + (i - 1) * tempOffset}C // ${flowStart + (j - 1) * flowOffset}mm3/s`);
+                testOutput.push(testDescComment);
+                testOutput.push(testDescMessage);
             }
 
             testOutput.push(`G0 X${Math.abs(bedMarginX) + ((i - 1) * (primeLength + wipeLength + tempSpacing))} Y${(bedLength - bedMarginY) - (j - 1) * flowSpacing} Z${0.5 + blobHeight + 5} F${travelSpeed * 60}`);
-            testOutput.push(`G4 S${dwellTime} ; Dwell`);
-            testOutput.push(`G0 Z${primingHeight} ; Drop down`);
+
+            if (randomizeTestOrder) {
+                if (dwellHeight) {
+                    testOutput.push(`G0 Z${dwellHeight} ; Move to dwell height`);
+                }
+                testOutput.push(testDescMessage);
+                if (heatBeforeDwell) {
+                    testOutput.push(setNozzleTemp);
+                    testOutput.push(`G4 S$$dwellTime$$; Dwell`);
+                } else {
+                    testOutput.push(`G4 S$$dwellTime$$; Dwell`);
+                    testOutput.push(setNozzleTemp);
+                }
+            }
+
+            testOutput.push(`G0 Z${primingHeight} ; Move to priming height`);
             testOutput.push(`G1 X${Math.abs(bedMarginX) + primeLength + ((i - 1) * (primeLength + wipeLength + tempSpacing))} E${primeAmount} F${(primeSpeed * 60)} ; Prime`);
             testOutput.push(`G1 E${-1 * retractionDistance} F${retractionSpeed * 60} ; Retract`);
             testOutput.push(`G0 X${Math.abs(bedMarginX) + primeLength + wipeLength + ((i - 1) * (primeLength + wipeLength + tempSpacing))} F${travelSpeed * 60} ; Wipe`);
@@ -164,16 +187,30 @@ export default function generateGcode(data, { addHeader=false }={}) {
             testOutput.push("");
 
             if ( randomizeTestOrder ) {
-                tests.push( testOutput );
+                tests.push( { output: testOutput, temp: temp } );
             }
         }
     }
     
-    if (randomizeTestOrder) {
+    if (randomizeTestOrder) {        
         let prng = seedrandom(randomizeTestOrderSeed ? randomizeTestOrderSeed : null);
         shuffleArray(tests, prng);
+        let lastTemp = tempStart;
         for (const test of tests) {
-            output.push(...test);
+            let useDwellTime = dwellTime;
+            if (lastTemp) {
+                let delta = test.temp - lastTemp;
+                if (delta > 0 && dwellCFactorRising) {
+                    useDwellTime += delta * dwellCFactorRising;
+                } 
+                else if ( delta < 0 && dwellCFactorFalling) {
+                    useDwellTime += -delta * dwellCFactorFalling;
+                }
+            }
+            lastTemp = test.temp;
+            for (const line of test.output) {
+                output.push(line.replaceAll('$$dwellTime$$', useDwellTime));
+            }
         }
     }
     

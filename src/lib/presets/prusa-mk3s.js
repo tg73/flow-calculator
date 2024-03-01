@@ -32,7 +32,14 @@ export const prusaMK3SDefaults = {
     primingHeight: 0.3, // mm
     startHeight: 0.5, // mm
     temperatureGCodeType: '109', // 104 or 109
-    heatBeforeDewell: false, // true or false
+    heatBeforeDwell: false, // true or false
+    toolNumber: null, // null or unitless
+    randomizeTestOrder: false, // true or false
+    randomizeTestOrderSeed: null, // null or string
+    dwellHeight: null, // null or mm
+    dwellCFactorRising: null, // null or s/°C
+    dwellCFactorFalling: null, // null or s/°C
+    extrusionVolume: 481.06, // mm^3
     startGcode: `M104 S\${tempStart} ; Set Nozzle Temperature
 M140 S\${bedTemp} ; Set Bed Temperature
 G90 ; Absolute positioning

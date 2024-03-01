@@ -39,6 +39,7 @@ function InputForm() {
   const updateFormData = (data) => {
     data.tempEnd = data.tempStart + (data.tempOffset * (data.tempSteps-1));
     data.flowEnd = data.flowStart + (data.flowOffset * (data.flowSteps-1));
+    data.extrusionVolume = (data.extrusionAmount * Math.PI * Math.pow(data.filamentDiameter/2.0, 2)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
     try { 
       replaceTemplateVars(data.startGcode, data);
@@ -301,10 +302,10 @@ function InputForm() {
         {errors.startHeight && <Error msg="Enter a valid start height."/>}
 
         <Select value="temperatureGCodeType" label="Temperature GCode Type" register={register("temperatureGCodeType", { required: true, valueAsNumber: true })}
-          description="Use M104 or M109 for temperature changes"
+          description="Use M104 or M109 for temperature changes. Note that the actual waiting behaviour of M109 varies by printer, for example a decrease in set temperature might result in no wait."
           options={[
-            {value: 104, label: "M104"},
-            {value: 109, label: "M109"}
+            {value: 104, label: "M104 (set only)"},
+            {value: 109, label: "M109 (set and wait)"}
           ]}
         />
 
@@ -313,17 +314,36 @@ function InputForm() {
         register={register("toolNumber", { required: false, valueAsNumber: true, validate: (value) => (!value || (value >= 0 && value < 32))})}/>
         {errors.toolNumber && <Error msg="Enter a valid tool number, or leave blank."/>}
 
-        <Input type="checkbox" value="heatBeforeDewell" label="Heat Before Dewell" register={register("heatBeforeDewell", { required: true })}
-        description="Heat the nozzle before the dewell time"
-        />
+        <Input type="number" value="dwellHeight" label="Dwell Height" unit="mm"
+        description="The height when dwelling. If not specified, dwell takes place a few mm above the blob height. Oozy filaments may need to dwell near the bed to contain leakage (eg, 0.2mm)."
+        register={register("dwellHeight", { required: false, valueAsNumber: true, validate: (value) => (!value || (value >= 0))})}/>
+        {errors.dwellHeight && <Error msg="Enter a valid dwell height."/>}
+
+        <Input type="number" value="dwellCFactorRising" label="Dwell C-Factor Rising" unit="s/°C"
+        description="Additional dwell time as a factor of temperature increase between tests."
+        register={register("dwellCFactorRising", { required: false, valueAsNumber: true, validate: (value) => (!value || (value >= 0))})}/>
+        {errors.dwellCFactorRising && <Error msg="Enter a valid dwell C factor rising."/>}
+
+        <Input type="number" value="dwellCFactorFalling" label="Dwell C-Factor Falling" unit="s/°C"
+        description="Additional dwell time as a factor of temperature decrease between tests."
+        register={register("dwellCFactorFalling", { required: false, valueAsNumber: true, validate: (value) => (!value || (value >= 0))})}/>
+        {errors.dwellCFactorFalling && <Error msg="Enter a valid dwell C factor falling."/>}
+
+        <Input type="checkbox" value="heatBeforeDwell" label="Heat Before Dwell"
+        description="Heat the nozzle before the dwell time"
+        register={register("heatBeforeDwell", { required: true })}/>
 
         <Input type="checkbox" value="randomizeTestOrder" label="Randomize Test Order"
-        description="When checked, the test order is randomized. The layout of tests on the bed is not changed, but the tests are executed in a random order."
+        description="When checked, the test order is randomized. This is considered good practice in experimental design. The layout of tests on the bed is not changed, but the tests are executed in a random order. Make sure the total dwell time is long enough for the nozzle temperature to stablize before each test (consider using the Dwell C-Factor settings)."
         register={register("randomizeTestOrder", { required: true })}/>
         
         <Input type="text" value="randomizeTestOrderSeed" label="Randomize Test Order Seed"
         description="A seed for Randomize Test Order, or leave blank for a random seed."
         register={register("randomizeTestOrderSeed", { required: false })}/>
+
+        <Input type="number" defaultValue={options.extrusionVolume} label="Extrusion Volume" unit="mm³" disabled={true} 
+        description="The calculated extrusion volume based on filament diameter and extrusion length."/>
+        <Info msg="Extrusion Volume is a calculated value." />
       </div>
 
       <div className="flex mt-4 items-center gap-2">
