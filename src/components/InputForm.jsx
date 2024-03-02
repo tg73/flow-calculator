@@ -315,11 +315,12 @@ function InputForm() {
           ]}
         />
 
-        <Select value="dwellGCodeUnits" label="Dwell GCode Units" register={register("dwellGCodeUnits", { required: true })}
-          description="'s' to use G4 Sx, 'ms' to use G4 Px. Note that all other options specify time in seconds, which will be multiplied accordingly when 'ms' is required."
+        <Select value="dwellGCodeUnits" label="Dwell GCode Handling" register={register("dwellGCodeUnits", { required: true })}
+          description="Note that all other options specify time in seconds, which will be multiplied accordingly when 'ms' is required."
           options={[
             {value: "s", label: "G4 Sx (seconds)"},
-            {value: "ms", label: "G4 Px (milliseconds)"}
+            {value: "ms", label: "G4 Px (milliseconds)"},
+            {value: "fake", label: "fake (uses a tiny slow retration to simulate dwell for idiotic firmwares that ignore G4)"}
           ]}
         />
 

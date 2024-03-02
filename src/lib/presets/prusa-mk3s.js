@@ -37,7 +37,7 @@ export const prusaMK3SDefaults = {
     toolNumber: null, // null or unitless
     randomizeTestOrder: false, // true or false
     randomizeTestOrderSeed: null, // null or string
-    dwellGCodeUnits: 's', // s or ms (uses G4 Sx or G4 P(x * 1000) accordingly)
+    dwellGCodeUnits: 's', // `s` or `ms` (uses G4 Sx or G4 P(x * 1000) accordingly) - or `fake` - uses tiny slow retractions for idiotic printer firmwares that ignore G4 (can't use with cold nozzle)
     dwellHeight: null, // null or mm
     dwellCFactorRising: null, // null or s/°C
     dwellCFactorFalling: null, // null or s/°C
