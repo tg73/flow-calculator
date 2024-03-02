@@ -315,6 +315,14 @@ function InputForm() {
           ]}
         />
 
+        <Select value="dwellGCodeUnits" label="Dwell GCode Units" register={register("dwellGCodeUnits", { required: true })}
+          description="'s' to use G4 Sx, 'ms' to use G4 Px. Note that all other options specify time in seconds, which will be multiplied accordingly when 'ms' is required."
+          options={[
+            {value: "s", label: "G4 Sx (seconds)"},
+            {value: "ms", label: "G4 Px (milliseconds)"}
+          ]}
+        />
+
         <Input type="number" value="toolNumber" label="Tool Number"
         description="The tool number to use for multi-tool printers. Typically the first tool has number zero."
         register={register("toolNumber", { required: false, valueAsNumber: true, validate: (value) => (!value || (value >= 0 && value < 32))})}/>

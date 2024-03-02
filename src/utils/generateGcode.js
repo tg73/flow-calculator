@@ -37,7 +37,8 @@ export default function generateGcode(data, { addHeader=true }={}) {
         toolNumber,
         dwellHeight,
         dwellCFactorRising,
-        dwellCFactorFalling,        
+        dwellCFactorFalling,
+        dwellGCodeUnits,
         /* eslint-disable */ 
         bedWidth,
         safeZPark,
@@ -61,7 +62,10 @@ export default function generateGcode(data, { addHeader=true }={}) {
 
     const startGcode = replaceTemplateVars(data.startGcode, data)
     const endGcode = replaceTemplateVars(data.endGcode, data); 
-    
+    const dwellUsingMs = dwellGCodeUnits == `ms`;
+    const g4Prefix = dwellUsingMs ? `G4 P` : `G4 S`;
+    const dwellTimeInCorrectUnits = dwellUsingMs ? dwellTime * 1000.0 : dwellTime;
+
     let output = [];
 
     // Fill Flow Mode
@@ -149,9 +153,9 @@ export default function generateGcode(data, { addHeader=true }={}) {
                     }
                     if (heatBeforeDwell) {
                         testOutput.push(setNozzleTemp);
-                        testOutput.push(`G4 S${dwellTime}; Dwell`);
+                        testOutput.push(`${g4Prefix}${dwellTimeInCorrectUnits}; Dwell`);
                     } else {
-                        testOutput.push(`G4 S${dwellTime}; Dwell`);
+                        testOutput.push(`${g4Prefix}${dwellTimeInCorrectUnits}; Dwell`);
                         testOutput.push(setNozzleTemp);
                     }
                 }
@@ -175,9 +179,9 @@ export default function generateGcode(data, { addHeader=true }={}) {
                 testOutput.push(testDescMessage);
                 if (heatBeforeDwell) {
                     testOutput.push(setNozzleTemp);
-                    testOutput.push(`G4 S$$dwellTime$$; Dwell`);
+                    testOutput.push(`${g4Prefix}$$dwellTime$$; Dwell`);
                 } else {
-                    testOutput.push(`G4 S$$dwellTime$$; Dwell`);
+                    testOutput.push(`${g4Prefix}$$dwellTime$$; Dwell`);
                     testOutput.push(setNozzleTemp);
                 }
             }
@@ -216,6 +220,10 @@ export default function generateGcode(data, { addHeader=true }={}) {
                     useDwellTime += -delta * dwellCFactorFalling;
                 }
             }
+            if (dwellUsingMs) {
+                useDwellTime *= 1000.0;
+            }
+
             lastTemp = test.temp;
             for (const line of test.output) {
                 output.push(line.replaceAll('$$dwellTime$$', useDwellTime));
