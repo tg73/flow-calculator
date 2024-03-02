@@ -1,6 +1,8 @@
 import InputForm from "./components/InputForm";
 import GcodePreview from "./components/GcodePreview";
 import GcodeDownload from "./components/GcodeDownload";
+import ExportOptions from "./components/ExportOptions";
+import ImportOptions from "./components/ImportOptions";
 import Credits from "./components/Credits";
 import { TitleBadges } from "./components/Badges";
 import { SlimAlert } from "./components/Banners";
@@ -23,6 +25,14 @@ function App() {
 
             <section className="mt-4">
               <GcodeDownload />
+            </section>
+
+            <section className="mt-4">
+              <ExportOptions />
+            </section>
+
+            <section className="mt-4">
+              <ImportOptions />
             </section>
 
             <section className="mt-4">

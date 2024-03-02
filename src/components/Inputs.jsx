@@ -13,11 +13,11 @@ const Label = (({value, label, description="", hasVariable=false}) => {
     </div>
 )});
 
-const Input = (({ value="", label, type, step=1, unit="", description="", defaultValue=undefined, disabled=false, hasVariable=false, handleChange=null, register={} }) => (
+const Input = (({ value="", label, type, step=1, unit="", description="", defaultValue=undefined, disabled=false, hasVariable=false, handleChange=null, inputRef=undefined, register={} }) => (
   <>
     <Label value={value} label={label} description={description} hasVariable={hasVariable} />
     <div className="flex flex-wrap items-stretch relative mt-2">
-      <input type={type} step={step} disabled={disabled} className={`
+      <input type={type} step={step} disabled={disabled} ref={inputRef} className={`
         flex-shrink flex-grow flex-1
         block
         relative

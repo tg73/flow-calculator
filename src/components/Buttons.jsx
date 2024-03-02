@@ -1,8 +1,8 @@
 import React from "react";
 
-const Button = ({label='', color='text-white', type='button', bgColors, handleClick=null}) => {
+const Button = ({label='', color='text-white', type='button', bgColors, handleClick=null, disabled=false}) => {
     return(
-        <button type={type} className={`w-full mt-4 h-12 px-6 ${color} font-bold transition-colors duration-150 rounded-md focus:shadow-outline ${bgColors}`} onClick={handleClick}>{label}</button>
+        <button type={type} disabled={disabled} className={`w-full mt-4 h-12 px-6 ${color} font-bold transition-colors duration-150 rounded-md focus:shadow-outline ${bgColors} ${disabled ? 'text-zinc-300 cursor-help' : ''}`} onClick={handleClick}>{label}</button>
     )
 }
 

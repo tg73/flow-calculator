@@ -1,5 +1,6 @@
 // For a stock Prusa MK3/S/+
 export const prusaMK3SDefaults = {
+    model: "Prusa MK3S",
     bedWidth: 250, // mm
     bedLength: 210, // mm
     bedMarginX: 5, // mm

@@ -87,12 +87,21 @@ export default function generateGcode(data, { addHeader=true }={}) {
         output.push(`; *** Based on CNCKitchen's ExtrusionSystemBenchmark by Stefan Hermann`)
         output.push(`; *** https://github.com/CNCKitchen/ExtrusionSystemBenchmark`)
 
-        output.push("")
+        if (data.model) {
+            output.push(`; Model: ${data.model}`);
+        }
 
+        if (data.notes) {
+            output.push(`; Notes:`);
+            output.push(`; ${data.notes.replaceAll(`\n`, `\n; `)}`);
+        }
+
+        output.push("")
+        
         // Generation Settings
         output.push(";####### Settings")
         for (const [key, value] of Object.entries(data)) {
-            if (key !== "startGcode" && key !== "endGcode") {
+            if (!['startGcode', 'endGcode', 'model', 'notes'].includes(key)) {
                 output.push(`; ${key} = ${value}`);
             }
         }

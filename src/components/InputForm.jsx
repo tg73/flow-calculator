@@ -78,6 +78,12 @@ function InputForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
+      <h2 className="text-lg mt-4 font-bold">Description</h2>
+      <div className ="grid grid-cols-2 gap-x-8">
+        <Input type="text" value="model" label="Model" register={register("model", { required: false })} />
+        <TextArea value="notes" label="Notes" 
+          register={register("notes", { required: false })}/>
+      </div>
       <h2 className="text-lg mt-4 font-bold">Printer Dimensions</h2>
       <div className ="grid grid-cols-2 gap-x-8">
         <Input type="number" value="bedWidth" label="Bed Width" unit="mm" hasVariable

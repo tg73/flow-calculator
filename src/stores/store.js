@@ -1,4 +1,4 @@
-import create from "zustand";
+import { create } from "zustand";
 import { prusaMK3SDefaults } from "../lib/presets/prusa-mk3s";
 import { version } from "../lib/version";
 import { persist } from "zustand/middleware";
@@ -16,6 +16,8 @@ export const useStore = create(
       setStartGcodeError: (startGcodeError) => set({ startGcodeError: startGcodeError }),
       endGcodeError: "",
       setEndGcodeError: (endGcodeError) => set({ endGcodeError: endGcodeError }),
+      exportOptionsFileName: "",
+      setExportOptionsFileName: (exportOptionsFileName) => set({ exportOptionsFileName: exportOptionsFileName }),
     }),
     {
       name: "generator-parameters",
